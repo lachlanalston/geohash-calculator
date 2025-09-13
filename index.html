@@ -4,157 +4,183 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Geohash Calculator with Map</title>
+<script src="https://cdn.tailwindcss.com"></script>
 <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
 <style>
-  body { font-family: Arial, sans-serif; padding: 20px; max-width: 800px; margin: auto; }
-  input, button { margin: 5px 0; padding: 8px; width: 100%; }
-  .output { margin-top: 20px; padding: 10px; border: 1px solid #ccc; border-radius: 5px; }
-  #map { height: 400px; margin-top: 20px; }
+  #map { height: 450px; border-radius: 0.5rem; }
 </style>
 </head>
-<body>
-<h1>Geohash Calculator with Map</h1>
+<body class="bg-gray-50 text-gray-800">
 
-<button id="getLocation">Use My GPS Location</button>
+<div class="max-w-4xl mx-auto p-6">
+  <h1 class="text-3xl font-bold mb-6 text-center">Geohash Calculator</h1>
 
-<h3>Or enter coordinates manually:</h3>
-<input type="text" id="latitude" placeholder="Latitude (e.g. -33.8688)">
-<input type="text" id="longitude" placeholder="Longitude (e.g. 151.2093)">
-<button id="calculateCoords">Calculate Geohash</button>
+  <div class="space-y-6">
 
-<h3>Or enter a location name:</h3>
-<input type="text" id="locationName" placeholder="Location (e.g. Sydney, Australia)">
-<button id="calculateLocation">Calculate from Location</button>
+    <!-- GPS -->
+    <div class="bg-white shadow-md rounded-lg p-6">
+      <button id="getLocation" class="w-full bg-blue-600 text-white py-2 px-4 rounded hover:bg-blue-700 transition">
+        Use My GPS Location
+      </button>
+    </div>
 
-<h3>Or enter a geohash to locate:</h3>
-<input type="text" id="geohashInput" placeholder="Geohash (e.g. r3gx2f9zn)">
-<button id="showGeohash">Show on Map</button>
+    <!-- Manual Coordinates -->
+    <div class="bg-white shadow-md rounded-lg p-6 space-y-3">
+      <h2 class="text-xl font-semibold">Enter Coordinates</h2>
+      <input type="text" id="latitude" placeholder="Latitude (e.g. -33.8688)" class="w-full border rounded px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:outline-none">
+      <input type="text" id="longitude" placeholder="Longitude (e.g. 151.2093)" class="w-full border rounded px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:outline-none">
+      <button id="calculateCoords" class="w-full bg-green-600 text-white py-2 px-4 rounded hover:bg-green-700 transition">Calculate Geohash</button>
+    </div>
 
-<div class="output" id="output"></div>
-<div id="map"></div>
+    <!-- Location Name -->
+    <div class="bg-white shadow-md rounded-lg p-6 space-y-3">
+      <h2 class="text-xl font-semibold">Search Location</h2>
+      <input type="text" id="locationName" placeholder="Location (e.g. Sydney, Australia)" class="w-full border rounded px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:outline-none">
+      <button id="calculateLocation" class="w-full bg-purple-600 text-white py-2 px-4 rounded hover:bg-purple-700 transition">Calculate from Location</button>
+    </div>
+
+    <!-- Geohash Input -->
+    <div class="bg-white shadow-md rounded-lg p-6 space-y-3">
+      <h2 class="text-xl font-semibold">Enter Geohash</h2>
+      <input type="text" id="geohashInput" placeholder="Geohash (e.g. r3gx2f9zn)" class="w-full border rounded px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:outline-none">
+      <button id="showGeohash" class="w-full bg-orange-600 text-white py-2 px-4 rounded hover:bg-orange-700 transition">Show on Map</button>
+    </div>
+
+    <!-- Output -->
+    <div class="bg-white shadow-md rounded-lg p-6" id="output">
+      <h2 class="text-xl font-semibold mb-2">Output</h2>
+      <p>Results will appear here.</p>
+    </div>
+
+    <!-- Map -->
+    <div class="bg-white shadow-md rounded-lg p-6">
+      <div id="map"></div>
+    </div>
+
+  </div>
+</div>
 
 <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
 <script>
-  const output = document.getElementById('output');
-  const BASE32 = "0123456789bcdefghjkmnpqrstuvwxyz";
+const output = document.getElementById('output');
+const BASE32 = "0123456789bcdefghjkmnpqrstuvwxyz";
 
-  // Initialize Leaflet map
-  const map = L.map('map').setView([0,0], 2);
-  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(map);
-  let marker = null;
-  let boxLayer = null;
+// Initialize Leaflet map
+const map = L.map('map').setView([0,0], 2);
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(map);
+let marker = null;
+let boxLayer = null;
 
-  function setMap(lat, lon, bbox=null) {
-    if(marker) map.removeLayer(marker);
-    if(boxLayer) map.removeLayer(boxLayer);
+function setMap(lat, lon, bbox=null){
+  if(marker) map.removeLayer(marker);
+  if(boxLayer) map.removeLayer(boxLayer);
+  marker = L.marker([lat, lon]).addTo(map);
+  if(bbox){
+    boxLayer = L.rectangle([[bbox[0], bbox[1]], [bbox[2], bbox[3]]], {color:"red", weight:2}).addTo(map);
+    map.fitBounds([[bbox[0], bbox[1]], [bbox[2], bbox[3]]]);
+  } else {
+    map.setView([lat, lon], 14);
+  }
+}
 
-    marker = L.marker([lat, lon]).addTo(map);
-    if(bbox) {
-      boxLayer = L.rectangle([[bbox[0], bbox[1]], [bbox[2], bbox[3]]], {color: "red", weight: 2}).addTo(map);
-      map.fitBounds([[bbox[0], bbox[1]], [bbox[2], bbox[3]]]);
+// Geohash functions
+function encodeGeohash(lat, lon, precision=9){
+  let isEven=true, bit=0, ch=0, geohash='';
+  let latMin=-90, latMax=90, lonMin=-180, lonMax=180;
+  while(geohash.length<precision){
+    if(isEven){
+      let mid=(lonMin+lonMax)/2;
+      if(lon>mid){ch|=(1<<(4-bit)); lonMin=mid;}else{lonMax=mid;}
     } else {
-      map.setView([lat, lon], 14);
+      let mid=(latMin+latMax)/2;
+      if(lat>mid){ch|=(1<<(4-bit)); latMin=mid;}else{latMax=mid;}
     }
+    isEven=!isEven;
+    if(bit<4){bit++;}else{geohash+=BASE32[ch]; bit=0; ch=0;}
   }
+  return geohash;
+}
 
-  function encodeGeohash(lat, lon, precision=9) {
-    let isEven = true, bit = 0, ch = 0, geohash = '';
-    let latMin=-90, latMax=90, lonMin=-180, lonMax=180;
-    while(geohash.length<precision) {
-      if(isEven){
-        let mid=(lonMin+lonMax)/2;
-        if(lon>mid){ch|=(1<<(4-bit)); lonMin=mid;}else{lonMax=mid;}
-      } else {
-        let mid=(latMin+latMax)/2;
-        if(lat>mid){ch|=(1<<(4-bit)); latMin=mid;}else{latMax=mid;}
-      }
+function decodeGeohashBBox(geohash){
+  let isEven=true, latMin=-90, latMax=90, lonMin=-180, lonMax=180;
+  for(let c of geohash){
+    let cd=BASE32.indexOf(c);
+    for(let mask of [16,8,4,2,1]){
+      if(isEven){ let mid=(lonMin+lonMax)/2; if(cd&mask){lonMin=mid;}else{lonMax=mid;} }
+      else{ let mid=(latMin+latMax)/2; if(cd&mask){latMin=mid;}else{latMax=mid;} }
       isEven=!isEven;
-      if(bit<4){bit++;} else {geohash+=BASE32[ch]; bit=0; ch=0;}
     }
-    return geohash;
   }
+  return [latMin, lonMin, latMax, lonMax];
+}
 
-  function decodeGeohashBBox(geohash){
-    let isEven=true, latMin=-90, latMax=90, lonMin=-180, lonMax=180;
-    for(let c of geohash){
-      let cd = BASE32.indexOf(c);
-      for(let mask of [16,8,4,2,1]){
-        if(isEven){ let mid=(lonMin+lonMax)/2; if(cd&mask){lonMin=mid;}else{lonMax=mid;} }
-        else { let mid=(latMin+latMax)/2; if(cd&mask){latMin=mid;}else{latMax=mid;} }
-        isEven=!isEven;
-      }
-    }
-    return [latMin, lonMin, latMax, lonMax];
-  }
+function geohashNeighbors(geohash){
+  const bbox=decodeGeohashBBox(geohash);
+  const latDiff=bbox[2]-bbox[0], lonDiff=bbox[3]-bbox[1];
+  const latCenter=(bbox[0]+bbox[2])/2, lonCenter=(bbox[1]+bbox[3])/2;
+  return {
+    n: encodeGeohash(latCenter+latDiff, lonCenter, geohash.length),
+    s: encodeGeohash(latCenter-latDiff, lonCenter, geohash.length),
+    e: encodeGeohash(latCenter, lonCenter+lonDiff, geohash.length),
+    w: encodeGeohash(latCenter, lonCenter-lonDiff, geohash.length),
+    ne: encodeGeohash(latCenter+latDiff, lonCenter+lonDiff, geohash.length),
+    nw: encodeGeohash(latCenter+latDiff, lonCenter-lonDiff, geohash.length),
+    se: encodeGeohash(latCenter-latDiff, lonCenter+lonDiff, geohash.length),
+    sw: encodeGeohash(latCenter-latDiff, lonCenter-lonDiff, geohash.length)
+  };
+}
 
-  function geohashNeighbors(geohash){
-    const bbox=decodeGeohashBBox(geohash);
-    const latDiff=bbox[2]-bbox[0], lonDiff=bbox[3]-bbox[1];
-    const latCenter=(bbox[0]+bbox[2])/2, lonCenter=(bbox[1]+bbox[3])/2;
-    return {
-      n: encodeGeohash(latCenter+latDiff, lonCenter, geohash.length),
-      s: encodeGeohash(latCenter-latDiff, lonCenter, geohash.length),
-      e: encodeGeohash(latCenter, lonCenter+lonDiff, geohash.length),
-      w: encodeGeohash(latCenter, lonCenter-lonDiff, geohash.length),
-      ne: encodeGeohash(latCenter+latDiff, lonCenter+lonDiff, geohash.length),
-      nw: encodeGeohash(latCenter+latDiff, lonCenter-lonDiff, geohash.length),
-      se: encodeGeohash(latCenter-latDiff, lonCenter+lonDiff, geohash.length),
-      sw: encodeGeohash(latCenter-latDiff, lonCenter-lonDiff, geohash.length)
-    };
-  }
+function displayResult(lat, lon, geohash){
+  const bbox=decodeGeohashBBox(geohash);
+  const neighbors=geohashNeighbors(geohash);
+  output.innerHTML=`
+    <h2 class="text-xl font-semibold mb-2">Output</h2>
+    <p><strong>Geohash:</strong> ${geohash}</p>
+    <p><strong>Latitude:</strong> ${lat}</p>
+    <p><strong>Longitude:</strong> ${lon}</p>
+    <p><strong>Bounding Box:</strong> SW(${bbox[0]}, ${bbox[1]}), NE(${bbox[2]}, ${bbox[3]})</p>
+    <p><strong>Neighbors:</strong> N:${neighbors.n}, NE:${neighbors.ne}, E:${neighbors.e}, SE:${neighbors.se}, S:${neighbors.s}, SW:${neighbors.sw}, W:${neighbors.w}, NW:${neighbors.nw}</p>
+  `;
+  setMap(lat, lon, bbox);
+}
 
-  function displayResult(lat, lon, geohash){
-    const bbox = decodeGeohashBBox(geohash);
-    const neighbors = geohashNeighbors(geohash);
-    output.innerHTML=`
-      <strong>Geohash:</strong> ${geohash} <br>
-      <strong>Latitude:</strong> ${lat} <br>
-      <strong>Longitude:</strong> ${lon} <br>
-      <strong>Bounding Box:</strong> SW(${bbox[0]}, ${bbox[1]}), NE(${bbox[2]}, ${bbox[3]}) <br>
-      <strong>Neighbors:</strong> N:${neighbors.n}, NE:${neighbors.ne}, E:${neighbors.e}, SE:${neighbors.se}, S:${neighbors.s}, SW:${neighbors.sw}, W:${neighbors.w}, NW:${neighbors.nw}
-    `;
-    setMap(lat, lon, bbox);
-  }
-
-  // GPS
-  document.getElementById('getLocation').addEventListener('click', ()=>{
-    if(navigator.geolocation){
-      navigator.geolocation.getCurrentPosition(pos=>{
-        const lat=pos.coords.latitude, lon=pos.coords.longitude;
-        displayResult(lat, lon, encodeGeohash(lat, lon));
-      }, err=>{output.innerHTML='Error getting location: '+err.message;});
-    } else {output.innerHTML='Geolocation not supported.';}
-  });
-
-  // Manual coordinates
-  document.getElementById('calculateCoords').addEventListener('click', ()=>{
-    const lat=parseFloat(document.getElementById('latitude').value);
-    const lon=parseFloat(document.getElementById('longitude').value);
-    if(!isNaN(lat)&&!isNaN(lon)){displayResult(lat, lon, encodeGeohash(lat, lon));}
-    else{output.innerHTML='Enter valid latitude & longitude.';}
-  });
-
-  // Location name
-  document.getElementById('calculateLocation').addEventListener('click', async ()=>{
-    const loc=document.getElementById('locationName').value;
-    if(!loc){output.innerHTML='Enter location.'; return;}
-    try{
-      const res=await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(loc)}`);
-      const data=await res.json();
-      if(data.length===0){output.innerHTML='Location not found.'; return;}
-      const lat=parseFloat(data[0].lat), lon=parseFloat(data[0].lon);
+// Event listeners
+document.getElementById('getLocation').addEventListener('click', ()=>{
+  if(navigator.geolocation){
+    navigator.geolocation.getCurrentPosition(pos=>{
+      const lat=pos.coords.latitude, lon=pos.coords.longitude;
       displayResult(lat, lon, encodeGeohash(lat, lon));
-    } catch(err){output.innerHTML='Error fetching location: '+err.message;}
-  });
+    }, err=>{output.innerHTML='Error getting location: '+err.message;});
+  } else {output.innerHTML='Geolocation not supported.';}
+});
 
-  // Show geohash on map
-  document.getElementById('showGeohash').addEventListener('click', ()=>{
-    const hash=document.getElementById('geohashInput').value;
-    if(!hash){output.innerHTML='Enter geohash.'; return;}
-    const bbox=decodeGeohashBBox(hash);
-    const lat=(bbox[0]+bbox[2])/2, lon=(bbox[1]+bbox[3])/2;
-    displayResult(lat, lon, hash);
-  });
+document.getElementById('calculateCoords').addEventListener('click', ()=>{
+  const lat=parseFloat(document.getElementById('latitude').value);
+  const lon=parseFloat(document.getElementById('longitude').value);
+  if(!isNaN(lat)&&!isNaN(lon)){displayResult(lat, lon, encodeGeohash(lat, lon));}
+  else{output.innerHTML='Enter valid latitude & longitude.';}
+});
+
+document.getElementById('calculateLocation').addEventListener('click', async ()=>{
+  const loc=document.getElementById('locationName').value;
+  if(!loc){output.innerHTML='Enter location.'; return;}
+  try{
+    const res=await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(loc)}`);
+    const data=await res.json();
+    if(data.length===0){output.innerHTML='Location not found.'; return;}
+    const lat=parseFloat(data[0].lat), lon=parseFloat(data[0].lon);
+    displayResult(lat, lon, encodeGeohash(lat, lon));
+  } catch(err){output.innerHTML='Error fetching location: '+err.message;}
+});
+
+document.getElementById('showGeohash').addEventListener('click', ()=>{
+  const hash=document.getElementById('geohashInput').value;
+  if(!hash){output.innerHTML='Enter geohash.'; return;}
+  const bbox=decodeGeohashBBox(hash);
+  const lat=(bbox[0]+bbox[2])/2, lon=(bbox[1]+bbox[3])/2;
+  displayResult(lat, lon, hash);
+});
 </script>
+
 </body>
 </html>
