@@ -8,3 +8,5 @@ This tool allows users to:
 - Select geohash length (default 9)  
 - Autocomplete locations
 - Toggle **dark/light mode** for the page
+
+https://lachlanalston.github.io/geohash-calculator/
