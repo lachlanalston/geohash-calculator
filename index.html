@@ -15,11 +15,11 @@
   .dark #suggestions { background-color: #1f2937; color: #f9fafb; border-color: #374151; }
 </style>
 </head>
-<body class="bg-gray-900 text-gray-100 dark:bg-gray-900 dark:text-gray-100">
+<body class="bg-gray-900 text-gray-100">
 
 <div class="max-w-7xl mx-auto p-6 flex flex-col md:flex-row gap-6 relative">
 
-  <!-- Left Panel: Inputs & Output -->
+  <!-- Left Panel -->
   <div class="flex-shrink-0 w-full md:w-96 space-y-6">
     <div class="bg-gray-800 shadow-lg rounded-lg p-6 space-y-4 relative">
       <div class="flex justify-between items-center">
@@ -32,6 +32,11 @@
         <h2 class="text-lg font-semibold mb-2">Coordinates</h2>
         <input type="text" id="latitude" placeholder="Latitude" class="w-full border rounded px-3 py-2 mb-2 focus:ring-2 focus:ring-blue-500 focus:outline-none bg-gray-900 text-gray-100 border-gray-700">
         <input type="text" id="longitude" placeholder="Longitude" class="w-full border rounded px-3 py-2 mb-2 focus:ring-2 focus:ring-blue-500 focus:outline-none bg-gray-900 text-gray-100 border-gray-700">
+      </div>
+
+      <div>
+        <h2 class="text-lg font-semibold mb-2">Geohash Length</h2>
+        <input type="number" id="geohashLength" min="1" max="12" value="9" class="w-full border rounded px-3 py-2 mb-2 focus:ring-2 focus:ring-yellow-500 focus:outline-none bg-gray-900 text-gray-100 border-gray-700">
         <button id="calculateCoords" class="w-full bg-green-600 text-white py-2 rounded-md hover:bg-green-700 transition">Calculate</button>
       </div>
 
@@ -49,7 +54,6 @@
       </div>
     </div>
 
-    <!-- Output Panel -->
     <div class="bg-gray-800 shadow-lg rounded-lg p-6">
       <h2 class="text-xl font-semibold mb-4">Output</h2>
       <div id="output" class="space-y-1 text-gray-100">
@@ -58,7 +62,7 @@
     </div>
   </div>
 
-  <!-- Right Panel: Map -->
+  <!-- Map Panel -->
   <div class="flex-1">
     <div class="bg-gray-800 shadow-lg rounded-lg p-4">
       <div id="map"></div>
@@ -72,29 +76,16 @@
 const output = document.getElementById('output');
 const BASE32 = "0123456789bcdefghjkmnpqrstuvwxyz";
 
-// Initialize map centered on Australia
+// Map always light mode
 const map = L.map('map').setView([-25.2744, 133.7751], 4);
-
-// Light and dark tile layers
-const lightTiles = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution:'&copy; OSM' });
-const darkTiles = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', { maxZoom: 19, attribution:'&copy; OSM &copy; CARTO' });
-
-// Add dark tiles by default
-darkTiles.addTo(map);
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution:'&copy; OSM' }).addTo(map);
 
 let marker = null;
 let boxLayer = null;
 
-// Dark mode toggle for whole page + map
+// Toggle dark/light for the page only
 document.getElementById('darkToggle').addEventListener('click', () => {
   document.documentElement.classList.toggle('dark');
-  if(document.documentElement.classList.contains('dark')){
-    map.removeLayer(lightTiles);
-    darkTiles.addTo(map);
-  } else {
-    map.removeLayer(darkTiles);
-    lightTiles.addTo(map);
-  }
   setTimeout(() => map.invalidateSize(), 200);
 });
 
@@ -108,17 +99,15 @@ function setMap(lat, lon, bbox=null){
   } else { map.setView([lat, lon], 14); }
 }
 
-// Geohash functions
 function encodeGeohash(lat, lon, precision=9){
-  let isEven=true, bit=0, ch=0, geohash='';
-  let latMin=-90, latMax=90, lonMin=-180, lonMax=180;
+  let isEven=true, bit=0, ch=0, geohash='', latMin=-90, latMax=90, lonMin=-180, lonMax=180;
   while(geohash.length<precision){
     if(isEven){
       let mid=(lonMin+lonMax)/2;
-      if(lon>mid){ch|=(1<<(4-bit)); lonMin=mid;}else{lonMax=mid;}
+      if(lon>mid){ch|=(1<<(4-bit)); lonMin=mid;} else {lonMax=mid;}
     } else {
       let mid=(latMin+latMax)/2;
-      if(lat>mid){ch|=(1<<(4-bit)); latMin=mid;}else{latMax=mid;}
+      if(lat>mid){ch|=(1<<(4-bit)); latMin=mid;} else {latMax=mid;}
     }
     isEven=!isEven;
     if(bit<4){bit++;} else {geohash+=BASE32[ch]; bit=0; ch=0;}
@@ -131,33 +120,16 @@ function decodeGeohashBBox(geohash){
   for(let c of geohash){
     let cd=BASE32.indexOf(c);
     for(let mask of [16,8,4,2,1]){
-      if(isEven){ let mid=(lonMin+lonMax)/2; if(cd&mask){lonMin=mid;}else{lonMax=mid;} }
-      else{ let mid=(latMin+latMax)/2; if(cd&mask){latMin=mid;}else{latMax=mid;} }
+      if(isEven){ let mid=(lonMin+lonMax)/2; if(cd&mask){lonMin=mid;} else {lonMax=mid;} }
+      else { let mid=(latMin+latMax)/2; if(cd&mask){latMin=mid;} else {latMax=mid;} }
       isEven=!isEven;
     }
   }
   return [latMin, lonMin, latMax, lonMax];
 }
 
-function geohashNeighbors(geohash){
-  const bbox=decodeGeohashBBox(geohash);
-  const latDiff=bbox[2]-bbox[0], lonDiff=bbox[3]-bbox[1];
-  const latCenter=(bbox[0]+bbox[2])/2, lonCenter=(bbox[1]+bbox[3])/2;
-  return {
-    n: encodeGeohash(latCenter+latDiff, lonCenter, geohash.length),
-    s: encodeGeohash(latCenter-latDiff, lonCenter, geohash.length),
-    e: encodeGeohash(latCenter, lonCenter+lonDiff, geohash.length),
-    w: encodeGeohash(latCenter, lonCenter-lonDiff, geohash.length),
-    ne: encodeGeohash(latCenter+latDiff, lonCenter+lonDiff, geohash.length),
-    nw: encodeGeohash(latCenter+latDiff, lonCenter-lonDiff, geohash.length),
-    se: encodeGeohash(latCenter-latDiff, lonCenter+lonDiff, geohash.length),
-    sw: encodeGeohash(latCenter-latDiff, lonCenter-lonDiff, geohash.length)
-  };
-}
-
 function displayResult(lat, lon, geohash){
   const bbox=decodeGeohashBBox(geohash);
-  const neighbors=geohashNeighbors(geohash);
   output.innerHTML=`
     <p><strong>Geohash:</strong> ${geohash}</p>
     <p><strong>Latitude:</strong> ${lat.toFixed(6)}</p>
@@ -171,8 +143,9 @@ function displayResult(lat, lon, geohash){
 document.getElementById('getLocation').addEventListener('click', ()=>{
   if(navigator.geolocation){
     navigator.geolocation.getCurrentPosition(pos=>{
+      const length=parseInt(document.getElementById('geohashLength').value)||9;
       const lat=pos.coords.latitude, lon=pos.coords.longitude;
-      displayResult(lat, lon, encodeGeohash(lat, lon));
+      displayResult(lat, lon, encodeGeohash(lat, lon, length));
     }, err=>{output.innerHTML='Error getting location: '+err.message;});
   } else {output.innerHTML='Geolocation not supported.';}
 });
@@ -180,19 +153,21 @@ document.getElementById('getLocation').addEventListener('click', ()=>{
 document.getElementById('calculateCoords').addEventListener('click', ()=>{
   const lat=parseFloat(document.getElementById('latitude').value);
   const lon=parseFloat(document.getElementById('longitude').value);
-  if(!isNaN(lat)&&!isNaN(lon)){displayResult(lat, lon, encodeGeohash(lat, lon));}
+  const length=parseInt(document.getElementById('geohashLength').value)||9;
+  if(!isNaN(lat)&&!isNaN(lon)){displayResult(lat, lon, encodeGeohash(lat, lon, length));}
   else{output.innerHTML='Enter valid latitude & longitude.';}
 });
 
 document.getElementById('calculateLocation').addEventListener('click', async ()=>{
   const loc=document.getElementById('locationName').value;
+  const length=parseInt(document.getElementById('geohashLength').value)||9;
   if(!loc){output.innerHTML='Enter location.'; return;}
   try{
     const res=await fetch(`https://nominatim.openstreetmap.org/search?format=json&countrycodes=au&q=${encodeURIComponent(loc)}&limit=5`);
     const data=await res.json();
     if(data.length===0){output.innerHTML='Location not found.'; return;}
     const lat=parseFloat(data[0].lat), lon=parseFloat(data[0].lon);
-    displayResult(lat, lon, encodeGeohash(lat, lon));
+    displayResult(lat, lon, encodeGeohash(lat, lon, length));
   } catch(err){output.innerHTML='Error fetching location: '+err.message;}
 });
 
@@ -208,7 +183,8 @@ document.getElementById('showGeohash').addEventListener('click', ()=>{
 map.on('click', function(e) {
   const lat = e.latlng.lat;
   const lon = e.latlng.lng;
-  const geohash = encodeGeohash(lat, lon);
+  const length=parseInt(document.getElementById('geohashLength').value)||9;
+  const geohash = encodeGeohash(lat, lon, length);
 
   document.getElementById('latitude').value = lat.toFixed(6);
   document.getElementById('longitude').value = lon.toFixed(6);
@@ -217,7 +193,7 @@ map.on('click', function(e) {
   displayResult(lat, lon, geohash);
 });
 
-// Location autocomplete
+// Autocomplete
 const locationInput = document.getElementById('locationName');
 const suggestions = document.getElementById('suggestions');
 
@@ -237,13 +213,13 @@ suggestions.addEventListener('click', e => {
   if(e.target.tagName === 'LI') {
     const lat = parseFloat(e.target.dataset.lat);
     const lon = parseFloat(e.target.dataset.lon);
+    const length=parseInt(document.getElementById('geohashLength').value)||9;
     locationInput.value = e.target.textContent;
     suggestions.classList.add('hidden');
-    displayResult(lat, lon, encodeGeohash(lat, lon));
+    displayResult(lat, lon, encodeGeohash(lat, lon, length));
   }
 });
 
-// Hide suggestions when clicking outside
 document.addEventListener('click', e => {
   if(!locationInput.contains(e.target) && !suggestions.contains(e.target)) {
     suggestions.classList.add('hidden');
