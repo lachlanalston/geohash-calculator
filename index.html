@@ -3,61 +3,59 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Geohash Calculator with Map</title>
+<title>Geohash Calculator</title>
 <script src="https://cdn.tailwindcss.com"></script>
 <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
 <style>
-  #map { height: 450px; border-radius: 0.5rem; }
+  #map { height: 600px; border-radius: 0.5rem; }
 </style>
 </head>
-<body class="bg-gray-50 text-gray-800">
+<body class="bg-gray-100 text-gray-800">
 
-<div class="max-w-4xl mx-auto p-6">
-  <h1 class="text-3xl font-bold mb-6 text-center">Geohash Calculator</h1>
+<div class="max-w-7xl mx-auto p-6 flex flex-col md:flex-row gap-6">
 
-  <div class="space-y-6">
+  <!-- Left Panel: Inputs & Output -->
+  <div class="flex-shrink-0 w-full md:w-96 space-y-6">
+    <div class="bg-white shadow-lg rounded-lg p-6 space-y-4">
+      <h1 class="text-2xl font-bold text-center">Geohash Calculator</h1>
+      <button id="getLocation" class="w-full bg-blue-600 text-white py-2 rounded-md hover:bg-blue-700 transition">Use My GPS Location</button>
+      
+      <div>
+        <h2 class="text-lg font-semibold mb-2">Coordinates</h2>
+        <input type="text" id="latitude" placeholder="Latitude" class="w-full border rounded px-3 py-2 mb-2 focus:ring-2 focus:ring-blue-500 focus:outline-none">
+        <input type="text" id="longitude" placeholder="Longitude" class="w-full border rounded px-3 py-2 mb-2 focus:ring-2 focus:ring-blue-500 focus:outline-none">
+        <button id="calculateCoords" class="w-full bg-green-600 text-white py-2 rounded-md hover:bg-green-700 transition">Calculate</button>
+      </div>
 
-    <!-- GPS -->
-    <div class="bg-white shadow-md rounded-lg p-6">
-      <button id="getLocation" class="w-full bg-blue-600 text-white py-2 px-4 rounded hover:bg-blue-700 transition">
-        Use My GPS Location
-      </button>
+      <div>
+        <h2 class="text-lg font-semibold mb-2">Location Name</h2>
+        <input type="text" id="locationName" placeholder="e.g. Sydney, Australia" class="w-full border rounded px-3 py-2 mb-2 focus:ring-2 focus:ring-purple-500 focus:outline-none">
+        <button id="calculateLocation" class="w-full bg-purple-600 text-white py-2 rounded-md hover:bg-purple-700 transition">Calculate</button>
+      </div>
+
+      <div>
+        <h2 class="text-lg font-semibold mb-2">Geohash Input</h2>
+        <input type="text" id="geohashInput" placeholder="e.g. r3gx2f9zn" class="w-full border rounded px-3 py-2 mb-2 focus:ring-2 focus:ring-orange-500 focus:outline-none">
+        <button id="showGeohash" class="w-full bg-orange-600 text-white py-2 rounded-md hover:bg-orange-700 transition">Show on Map</button>
+      </div>
     </div>
 
-    <!-- Manual Coordinates -->
-    <div class="bg-white shadow-md rounded-lg p-6 space-y-3">
-      <h2 class="text-xl font-semibold">Enter Coordinates</h2>
-      <input type="text" id="latitude" placeholder="Latitude (e.g. -33.8688)" class="w-full border rounded px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:outline-none">
-      <input type="text" id="longitude" placeholder="Longitude (e.g. 151.2093)" class="w-full border rounded px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:outline-none">
-      <button id="calculateCoords" class="w-full bg-green-600 text-white py-2 px-4 rounded hover:bg-green-700 transition">Calculate Geohash</button>
+    <!-- Output Panel -->
+    <div class="bg-white shadow-lg rounded-lg p-6">
+      <h2 class="text-xl font-semibold mb-4">Output</h2>
+      <div id="output" class="space-y-1">
+        <p>Results will appear here.</p>
+      </div>
     </div>
+  </div>
 
-    <!-- Location Name -->
-    <div class="bg-white shadow-md rounded-lg p-6 space-y-3">
-      <h2 class="text-xl font-semibold">Search Location</h2>
-      <input type="text" id="locationName" placeholder="Location (e.g. Sydney, Australia)" class="w-full border rounded px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:outline-none">
-      <button id="calculateLocation" class="w-full bg-purple-600 text-white py-2 px-4 rounded hover:bg-purple-700 transition">Calculate from Location</button>
-    </div>
-
-    <!-- Geohash Input -->
-    <div class="bg-white shadow-md rounded-lg p-6 space-y-3">
-      <h2 class="text-xl font-semibold">Enter Geohash</h2>
-      <input type="text" id="geohashInput" placeholder="Geohash (e.g. r3gx2f9zn)" class="w-full border rounded px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:outline-none">
-      <button id="showGeohash" class="w-full bg-orange-600 text-white py-2 px-4 rounded hover:bg-orange-700 transition">Show on Map</button>
-    </div>
-
-    <!-- Output -->
-    <div class="bg-white shadow-md rounded-lg p-6" id="output">
-      <h2 class="text-xl font-semibold mb-2">Output</h2>
-      <p>Results will appear here.</p>
-    </div>
-
-    <!-- Map -->
-    <div class="bg-white shadow-md rounded-lg p-6">
+  <!-- Right Panel: Map -->
+  <div class="flex-1">
+    <div class="bg-white shadow-lg rounded-lg p-4">
       <div id="map"></div>
     </div>
-
   </div>
+
 </div>
 
 <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
@@ -65,7 +63,7 @@
 const output = document.getElementById('output');
 const BASE32 = "0123456789bcdefghjkmnpqrstuvwxyz";
 
-// Initialize Leaflet map
+// Initialize map
 const map = L.map('map').setView([0,0], 2);
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(map);
 let marker = null;
@@ -77,13 +75,11 @@ function setMap(lat, lon, bbox=null){
   marker = L.marker([lat, lon]).addTo(map);
   if(bbox){
     boxLayer = L.rectangle([[bbox[0], bbox[1]], [bbox[2], bbox[3]]], {color:"red", weight:2}).addTo(map);
-    map.fitBounds([[bbox[0], bbox[1]], [bbox[2], bbox[3]]]);
-  } else {
-    map.setView([lat, lon], 14);
-  }
+    map.fitBounds([[bbox[0], bbox[1]], [bbox[2], bbox[3]]], {padding:[20,20]});
+  } else { map.setView([lat, lon], 14); }
 }
 
-// Geohash functions
+// Geohash encode/decode functions
 function encodeGeohash(lat, lon, precision=9){
   let isEven=true, bit=0, ch=0, geohash='';
   let latMin=-90, latMax=90, lonMin=-180, lonMax=180;
@@ -96,7 +92,7 @@ function encodeGeohash(lat, lon, precision=9){
       if(lat>mid){ch|=(1<<(4-bit)); latMin=mid;}else{latMax=mid;}
     }
     isEven=!isEven;
-    if(bit<4){bit++;}else{geohash+=BASE32[ch]; bit=0; ch=0;}
+    if(bit<4){bit++;} else {geohash+=BASE32[ch]; bit=0; ch=0;}
   }
   return geohash;
 }
@@ -134,11 +130,10 @@ function displayResult(lat, lon, geohash){
   const bbox=decodeGeohashBBox(geohash);
   const neighbors=geohashNeighbors(geohash);
   output.innerHTML=`
-    <h2 class="text-xl font-semibold mb-2">Output</h2>
     <p><strong>Geohash:</strong> ${geohash}</p>
-    <p><strong>Latitude:</strong> ${lat}</p>
-    <p><strong>Longitude:</strong> ${lon}</p>
-    <p><strong>Bounding Box:</strong> SW(${bbox[0]}, ${bbox[1]}), NE(${bbox[2]}, ${bbox[3]})</p>
+    <p><strong>Latitude:</strong> ${lat.toFixed(6)}</p>
+    <p><strong>Longitude:</strong> ${lon.toFixed(6)}</p>
+    <p><strong>Bounding Box:</strong> SW(${bbox[0].toFixed(6)}, ${bbox[1].toFixed(6)}), NE(${bbox[2].toFixed(6)}, ${bbox[3].toFixed(6)})</p>
     <p><strong>Neighbors:</strong> N:${neighbors.n}, NE:${neighbors.ne}, E:${neighbors.e}, SE:${neighbors.se}, S:${neighbors.s}, SW:${neighbors.sw}, W:${neighbors.w}, NW:${neighbors.nw}</p>
   `;
   setMap(lat, lon, bbox);
@@ -179,6 +174,19 @@ document.getElementById('showGeohash').addEventListener('click', ()=>{
   const bbox=decodeGeohashBBox(hash);
   const lat=(bbox[0]+bbox[2])/2, lon=(bbox[1]+bbox[3])/2;
   displayResult(lat, lon, hash);
+});
+
+// Map click listener
+map.on('click', function(e) {
+  const lat = e.latlng.lat;
+  const lon = e.latlng.lng;
+  const geohash = encodeGeohash(lat, lon);
+
+  document.getElementById('latitude').value = lat.toFixed(6);
+  document.getElementById('longitude').value = lon.toFixed(6);
+  document.getElementById('geohashInput').value = geohash;
+
+  displayResult(lat, lon, geohash);
 });
 </script>
 
