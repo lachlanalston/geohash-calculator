@@ -26,18 +26,89 @@
 
   <div class="output" id="output"></div>
 
-  <script src="https://cdn.jsdelivr.net/npm/geohash.js@1.0.0/geohash.min.js"></script>
   <script>
     const output = document.getElementById('output');
 
+    const BASE32 = "0123456789bcdefghjkmnpqrstuvwxyz";
+
+    // Encode latitude and longitude to geohash
+    function encodeGeohash(lat, lon, precision=9) {
+      let isEven = true;
+      let bit = 0, ch = 0;
+      let geohash = '';
+
+      let latMin = -90, latMax = 90;
+      let lonMin = -180, lonMax = 180;
+
+      while (geohash.length < precision) {
+        if (isEven) {
+          let mid = (lonMin + lonMax) / 2;
+          if (lon > mid) { ch |= (1 << (4 - bit)); lonMin = mid; }
+          else { lonMax = mid; }
+        } else {
+          let mid = (latMin + latMax) / 2;
+          if (lat > mid) { ch |= (1 << (4 - bit)); latMin = mid; }
+          else { latMax = mid; }
+        }
+        isEven = !isEven;
+        if (bit < 4) bit++;
+        else { geohash += BASE32[ch]; bit = 0; ch = 0; }
+      }
+      return geohash;
+    }
+
+    // Decode geohash to bounding box [minLat, minLon, maxLat, maxLon]
+    function decodeGeohashBBox(geohash) {
+      let isEven = true;
+      let latMin = -90, latMax = 90, lonMin = -180, lonMax = 180;
+
+      for (let c of geohash) {
+        let cd = BASE32.indexOf(c);
+        for (let mask of [16,8,4,2,1]) {
+          if (isEven) {
+            let mid = (lonMin + lonMax)/2;
+            if (cd & mask) lonMin = mid; else lonMax = mid;
+          } else {
+            let mid = (latMin + latMax)/2;
+            if (cd & mask) latMin = mid; else latMax = mid;
+          }
+          isEven = !isEven;
+        }
+      }
+      return [latMin, lonMin, latMax, lonMax];
+    }
+
+    // Calculate approximate neighbors
+    function geohashNeighbors(geohash) {
+      // For simplicity, just calculate a small adjustment in lat/lon
+      const bbox = decodeGeohashBBox(geohash);
+      const latDiff = bbox[2] - bbox[0];
+      const lonDiff = bbox[3] - bbox[1];
+
+      const latCenter = (bbox[0]+bbox[2])/2;
+      const lonCenter = (bbox[1]+bbox[3])/2;
+
+      return {
+        n: encodeGeohash(latCenter + latDiff, lonCenter, geohash.length),
+        s: encodeGeohash(latCenter - latDiff, lonCenter, geohash.length),
+        e: encodeGeohash(latCenter, lonCenter + lonDiff, geohash.length),
+        w: encodeGeohash(latCenter, lonCenter - lonDiff, geohash.length),
+        ne: encodeGeohash(latCenter + latDiff, lonCenter + lonDiff, geohash.length),
+        nw: encodeGeohash(latCenter + latDiff, lonCenter - lonDiff, geohash.length),
+        se: encodeGeohash(latCenter - latDiff, lonCenter + lonDiff, geohash.length),
+        sw: encodeGeohash(latCenter - latDiff, lonCenter - lonDiff, geohash.length),
+      };
+    }
+
     function displayResult(lat, lon, geohash) {
-      const bbox = Geohash.decode_bbox(geohash);
+      const bbox = decodeGeohashBBox(geohash);
+      const neighbors = geohashNeighbors(geohash);
       output.innerHTML = `
         <strong>Geohash:</strong> ${geohash} <br>
         <strong>Latitude:</strong> ${lat} <br>
         <strong>Longitude:</strong> ${lon} <br>
         <strong>Bounding Box:</strong> SW(${bbox[0]}, ${bbox[1]}), NE(${bbox[2]}, ${bbox[3]}) <br>
-        <strong>Neighbors:</strong> ${Geohash.neighbors(geohash).join(', ')}
+        <strong>Neighbors:</strong> N:${neighbors.n}, NE:${neighbors.ne}, E:${neighbors.e}, SE:${neighbors.se}, S:${neighbors.s}, SW:${neighbors.sw}, W:${neighbors.w}, NW:${neighbors.nw}
       `;
     }
 
@@ -47,7 +118,7 @@
         navigator.geolocation.getCurrentPosition((position) => {
           const lat = position.coords.latitude;
           const lon = position.coords.longitude;
-          const geohash = Geohash.encode(lat, lon);
+          const geohash = encodeGeohash(lat, lon);
           displayResult(lat, lon, geohash);
         }, (err) => {
           output.innerHTML = 'Error getting location: ' + err.message;
@@ -62,14 +133,14 @@
       const lat = parseFloat(document.getElementById('latitude').value);
       const lon = parseFloat(document.getElementById('longitude').value);
       if (!isNaN(lat) && !isNaN(lon)) {
-        const geohash = Geohash.encode(lat, lon);
+        const geohash = encodeGeohash(lat, lon);
         displayResult(lat, lon, geohash);
       } else {
         output.innerHTML = 'Please enter valid latitude and longitude.';
       }
     });
 
-    // Location name using Nominatim API (OpenStreetMap)
+    // Location name using Nominatim API
     document.getElementById('calculateLocation').addEventListener('click', async () => {
       const location = document.getElementById('locationName').value;
       if (!location) return output.innerHTML = 'Please enter a location.';
@@ -79,7 +150,7 @@
         if (data.length === 0) return output.innerHTML = 'Location not found.';
         const lat = parseFloat(data[0].lat);
         const lon = parseFloat(data[0].lon);
-        const geohash = Geohash.encode(lat, lon);
+        const geohash = encodeGeohash(lat, lon);
         displayResult(lat, lon, geohash);
       } catch (err) {
         output.innerHTML = 'Error fetching location: ' + err.message;
