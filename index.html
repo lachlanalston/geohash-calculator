@@ -10,7 +10,7 @@
 </script>
 <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
 <style>
-  #map { height: 600px; border-radius: 0.5rem; background-color: #1f2937; }
+  #map { height: 600px; border-radius: 0.5rem; }
   #suggestions { position: absolute; z-index: 50; width: calc(100% - 2rem); }
   .dark #suggestions { background-color: #1f2937; color: #f9fafb; border-color: #374151; }
 </style>
@@ -72,12 +72,12 @@
 const output = document.getElementById('output');
 const BASE32 = "0123456789bcdefghjkmnpqrstuvwxyz";
 
-// Initialize map
-const map = L.map('map').setView([0,0], 2);
+// Initialize map centered on Australia
+const map = L.map('map').setView([-25.2744, 133.7751], 4);
 
 // Light and dark tile layers
-const lightTiles = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 });
-const darkTiles = L.tileLayer('https://tiles.stadiamaps.com/tiles/alidade_dark/{z}/{x}/{y}{r}.png', { maxZoom: 20 });
+const lightTiles = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution:'&copy; OSM' });
+const darkTiles = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', { maxZoom: 19, attribution:'&copy; OSM &copy; CARTO' });
 
 // Add dark tiles by default
 darkTiles.addTo(map);
@@ -85,10 +85,9 @@ darkTiles.addTo(map);
 let marker = null;
 let boxLayer = null;
 
-// Dark mode toggle
-const darkToggle = document.getElementById('darkToggle');
-darkToggle.addEventListener('click', () => {
-  document.documentElement.classList.toggle('dark'); 
+// Dark mode toggle for whole page + map
+document.getElementById('darkToggle').addEventListener('click', () => {
+  document.documentElement.classList.toggle('dark');
   if(document.documentElement.classList.contains('dark')){
     map.removeLayer(lightTiles);
     darkTiles.addTo(map);
@@ -164,12 +163,11 @@ function displayResult(lat, lon, geohash){
     <p><strong>Latitude:</strong> ${lat.toFixed(6)}</p>
     <p><strong>Longitude:</strong> ${lon.toFixed(6)}</p>
     <p><strong>Bounding Box:</strong> SW(${bbox[0].toFixed(6)}, ${bbox[1].toFixed(6)}), NE(${bbox[2].toFixed(6)}, ${bbox[3].toFixed(6)})</p>
-    <p><strong>Neighbors:</strong> N:${neighbors.n}, NE:${neighbors.ne}, E:${neighbors.e}, SE:${neighbors.se}, S:${neighbors.s}, SW:${neighbors.sw}, W:${neighbors.w}, NW:${neighbors.nw}</p>
   `;
   setMap(lat, lon, bbox);
 }
 
-// Event listeners for buttons
+// Event listeners
 document.getElementById('getLocation').addEventListener('click', ()=>{
   if(navigator.geolocation){
     navigator.geolocation.getCurrentPosition(pos=>{
@@ -190,7 +188,7 @@ document.getElementById('calculateLocation').addEventListener('click', async ()=
   const loc=document.getElementById('locationName').value;
   if(!loc){output.innerHTML='Enter location.'; return;}
   try{
-    const res=await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(loc)}`);
+    const res=await fetch(`https://nominatim.openstreetmap.org/search?format=json&countrycodes=au&q=${encodeURIComponent(loc)}&limit=5`);
     const data=await res.json();
     if(data.length===0){output.innerHTML='Location not found.'; return;}
     const lat=parseFloat(data[0].lat), lon=parseFloat(data[0].lon);
@@ -206,7 +204,7 @@ document.getElementById('showGeohash').addEventListener('click', ()=>{
   displayResult(lat, lon, hash);
 });
 
-// Map click listener
+// Map click updates coordinates & geohash
 map.on('click', function(e) {
   const lat = e.latlng.lat;
   const lon = e.latlng.lng;
@@ -228,7 +226,7 @@ locationInput.addEventListener('input', async () => {
   if(!query) { suggestions.innerHTML=''; suggestions.classList.add('hidden'); return; }
 
   try {
-    const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=5`);
+    const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&countrycodes=au&q=${encodeURIComponent(query)}&limit=5`);
     const data = await res.json();
     suggestions.innerHTML = data.map(item => `<li class="px-3 py-2 hover:bg-purple-100 cursor-pointer dark:hover:bg-purple-700" data-lat="${item.lat}" data-lon="${item.lon}">${item.display_name}</li>`).join('');
     suggestions.classList.remove('hidden');
