@@ -1,49 +1,59 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" class="dark">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Geohash Calculator</title>
 <script src="https://cdn.tailwindcss.com"></script>
+<script>
+  // Enable dark mode class strategy
+  tailwind.config = { darkMode: 'class' }
+</script>
 <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
 <style>
   #map { height: 600px; border-radius: 0.5rem; }
+  #suggestions { position: absolute; z-index: 50; width: calc(100% - 2rem); }
+  .dark #suggestions { background-color: #1f2937; color: #f9fafb; border-color: #374151; }
 </style>
 </head>
-<body class="bg-gray-100 text-gray-800">
+<body class="bg-gray-900 text-gray-100 dark:bg-gray-900 dark:text-gray-100">
 
-<div class="max-w-7xl mx-auto p-6 flex flex-col md:flex-row gap-6">
+<div class="max-w-7xl mx-auto p-6 flex flex-col md:flex-row gap-6 relative">
 
   <!-- Left Panel: Inputs & Output -->
   <div class="flex-shrink-0 w-full md:w-96 space-y-6">
-    <div class="bg-white shadow-lg rounded-lg p-6 space-y-4">
-      <h1 class="text-2xl font-bold text-center">Geohash Calculator</h1>
+    <div class="bg-gray-800 shadow-lg rounded-lg p-6 space-y-4 relative">
+      <div class="flex justify-between items-center">
+        <h1 class="text-2xl font-bold text-center flex-1">Geohash Calculator</h1>
+        <button id="darkToggle" class="ml-2 bg-gray-600 px-3 py-1 rounded hover:bg-gray-500 transition">Toggle Theme</button>
+      </div>
       <button id="getLocation" class="w-full bg-blue-600 text-white py-2 rounded-md hover:bg-blue-700 transition">Use My GPS Location</button>
       
       <div>
         <h2 class="text-lg font-semibold mb-2">Coordinates</h2>
-        <input type="text" id="latitude" placeholder="Latitude" class="w-full border rounded px-3 py-2 mb-2 focus:ring-2 focus:ring-blue-500 focus:outline-none">
-        <input type="text" id="longitude" placeholder="Longitude" class="w-full border rounded px-3 py-2 mb-2 focus:ring-2 focus:ring-blue-500 focus:outline-none">
+        <input type="text" id="latitude" placeholder="Latitude" class="w-full border rounded px-3 py-2 mb-2 focus:ring-2 focus:ring-blue-500 focus:outline-none bg-gray-900 text-gray-100 border-gray-700">
+        <input type="text" id="longitude" placeholder="Longitude" class="w-full border rounded px-3 py-2 mb-2 focus:ring-2 focus:ring-blue-500 focus:outline-none bg-gray-900 text-gray-100 border-gray-700">
         <button id="calculateCoords" class="w-full bg-green-600 text-white py-2 rounded-md hover:bg-green-700 transition">Calculate</button>
       </div>
 
-      <div>
+      <div class="relative">
         <h2 class="text-lg font-semibold mb-2">Location Name</h2>
-        <input type="text" id="locationName" placeholder="e.g. Sydney, Australia" class="w-full border rounded px-3 py-2 mb-2 focus:ring-2 focus:ring-purple-500 focus:outline-none">
-        <button id="calculateLocation" class="w-full bg-purple-600 text-white py-2 rounded-md hover:bg-purple-700 transition">Calculate</button>
+        <input type="text" id="locationName" placeholder="e.g. Sydney, Australia" class="w-full border rounded px-3 py-2 mb-2 focus:ring-2 focus:ring-purple-500 focus:outline-none bg-gray-900 text-gray-100 border-gray-700" autocomplete="off">
+        <ul id="suggestions" class="bg-gray-800 border border-gray-700 rounded max-h-40 overflow-auto hidden"></ul>
+        <button id="calculateLocation" class="w-full bg-purple-600 text-white py-2 rounded-md hover:bg-purple-700 transition mt-2">Calculate</button>
       </div>
 
       <div>
         <h2 class="text-lg font-semibold mb-2">Geohash Input</h2>
-        <input type="text" id="geohashInput" placeholder="e.g. r3gx2f9zn" class="w-full border rounded px-3 py-2 mb-2 focus:ring-2 focus:ring-orange-500 focus:outline-none">
+        <input type="text" id="geohashInput" placeholder="e.g. r3gx2f9zn" class="w-full border rounded px-3 py-2 mb-2 focus:ring-2 focus:ring-orange-500 focus:outline-none bg-gray-900 text-gray-100 border-gray-700">
         <button id="showGeohash" class="w-full bg-orange-600 text-white py-2 rounded-md hover:bg-orange-700 transition">Show on Map</button>
       </div>
     </div>
 
     <!-- Output Panel -->
-    <div class="bg-white shadow-lg rounded-lg p-6">
+    <div class="bg-gray-800 shadow-lg rounded-lg p-6">
       <h2 class="text-xl font-semibold mb-4">Output</h2>
-      <div id="output" class="space-y-1">
+      <div id="output" class="space-y-1 text-gray-100">
         <p>Results will appear here.</p>
       </div>
     </div>
@@ -51,7 +61,7 @@
 
   <!-- Right Panel: Map -->
   <div class="flex-1">
-    <div class="bg-white shadow-lg rounded-lg p-4">
+    <div class="bg-gray-800 shadow-lg rounded-lg p-4">
       <div id="map"></div>
     </div>
   </div>
@@ -62,6 +72,11 @@
 <script>
 const output = document.getElementById('output');
 const BASE32 = "0123456789bcdefghjkmnpqrstuvwxyz";
+
+// Dark mode toggle
+document.getElementById('darkToggle').addEventListener('click', () => {
+  document.documentElement.classList.toggle('dark');
+});
 
 // Initialize map
 const map = L.map('map').setView([0,0], 2);
@@ -79,7 +94,7 @@ function setMap(lat, lon, bbox=null){
   } else { map.setView([lat, lon], 14); }
 }
 
-// Geohash encode/decode functions
+// Geohash functions
 function encodeGeohash(lat, lon, precision=9){
   let isEven=true, bit=0, ch=0, geohash='';
   let latMin=-90, latMax=90, lonMin=-180, lonMax=180;
@@ -162,33 +177,4 @@ document.getElementById('calculateLocation').addEventListener('click', async ()=
   try{
     const res=await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(loc)}`);
     const data=await res.json();
-    if(data.length===0){output.innerHTML='Location not found.'; return;}
-    const lat=parseFloat(data[0].lat), lon=parseFloat(data[0].lon);
-    displayResult(lat, lon, encodeGeohash(lat, lon));
-  } catch(err){output.innerHTML='Error fetching location: '+err.message;}
-});
-
-document.getElementById('showGeohash').addEventListener('click', ()=>{
-  const hash=document.getElementById('geohashInput').value;
-  if(!hash){output.innerHTML='Enter geohash.'; return;}
-  const bbox=decodeGeohashBBox(hash);
-  const lat=(bbox[0]+bbox[2])/2, lon=(bbox[1]+bbox[3])/2;
-  displayResult(lat, lon, hash);
-});
-
-// Map click listener
-map.on('click', function(e) {
-  const lat = e.latlng.lat;
-  const lon = e.latlng.lng;
-  const geohash = encodeGeohash(lat, lon);
-
-  document.getElementById('latitude').value = lat.toFixed(6);
-  document.getElementById('longitude').value = lon.toFixed(6);
-  document.getElementById('geohashInput').value = geohash;
-
-  displayResult(lat, lon, geohash);
-});
-</script>
-
-</body>
-</html>
+    if(data.length===0){output.innerHTML='
