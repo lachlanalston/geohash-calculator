@@ -6,12 +6,11 @@
 <title>Geohash Calculator</title>
 <script src="https://cdn.tailwindcss.com"></script>
 <script>
-  // Enable dark mode class strategy
   tailwind.config = { darkMode: 'class' }
 </script>
 <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
 <style>
-  #map { height: 600px; border-radius: 0.5rem; }
+  #map { height: 600px; border-radius: 0.5rem; background-color: #1f2937; }
   #suggestions { position: absolute; z-index: 50; width: calc(100% - 2rem); }
   .dark #suggestions { background-color: #1f2937; color: #f9fafb; border-color: #374151; }
 </style>
@@ -73,16 +72,32 @@
 const output = document.getElementById('output');
 const BASE32 = "0123456789bcdefghjkmnpqrstuvwxyz";
 
-// Dark mode toggle
-document.getElementById('darkToggle').addEventListener('click', () => {
-  document.documentElement.classList.toggle('dark');
-});
-
 // Initialize map
 const map = L.map('map').setView([0,0], 2);
-L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(map);
+
+// Light and dark tile layers
+const lightTiles = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 });
+const darkTiles = L.tileLayer('https://tiles.stadiamaps.com/tiles/alidade_dark/{z}/{x}/{y}{r}.png', { maxZoom: 20 });
+
+// Add dark tiles by default
+darkTiles.addTo(map);
+
 let marker = null;
 let boxLayer = null;
+
+// Dark mode toggle
+const darkToggle = document.getElementById('darkToggle');
+darkToggle.addEventListener('click', () => {
+  document.documentElement.classList.toggle('dark'); 
+  if(document.documentElement.classList.contains('dark')){
+    map.removeLayer(lightTiles);
+    darkTiles.addTo(map);
+  } else {
+    map.removeLayer(darkTiles);
+    lightTiles.addTo(map);
+  }
+  setTimeout(() => map.invalidateSize(), 200);
+});
 
 function setMap(lat, lon, bbox=null){
   if(marker) map.removeLayer(marker);
@@ -154,7 +169,7 @@ function displayResult(lat, lon, geohash){
   setMap(lat, lon, bbox);
 }
 
-// Event listeners
+// Event listeners for buttons
 document.getElementById('getLocation').addEventListener('click', ()=>{
   if(navigator.geolocation){
     navigator.geolocation.getCurrentPosition(pos=>{
@@ -177,4 +192,65 @@ document.getElementById('calculateLocation').addEventListener('click', async ()=
   try{
     const res=await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(loc)}`);
     const data=await res.json();
-    if(data.length===0){output.innerHTML='
+    if(data.length===0){output.innerHTML='Location not found.'; return;}
+    const lat=parseFloat(data[0].lat), lon=parseFloat(data[0].lon);
+    displayResult(lat, lon, encodeGeohash(lat, lon));
+  } catch(err){output.innerHTML='Error fetching location: '+err.message;}
+});
+
+document.getElementById('showGeohash').addEventListener('click', ()=>{
+  const hash=document.getElementById('geohashInput').value;
+  if(!hash){output.innerHTML='Enter geohash.'; return;}
+  const bbox=decodeGeohashBBox(hash);
+  const lat=(bbox[0]+bbox[2])/2, lon=(bbox[1]+bbox[3])/2;
+  displayResult(lat, lon, hash);
+});
+
+// Map click listener
+map.on('click', function(e) {
+  const lat = e.latlng.lat;
+  const lon = e.latlng.lng;
+  const geohash = encodeGeohash(lat, lon);
+
+  document.getElementById('latitude').value = lat.toFixed(6);
+  document.getElementById('longitude').value = lon.toFixed(6);
+  document.getElementById('geohashInput').value = geohash;
+
+  displayResult(lat, lon, geohash);
+});
+
+// Location autocomplete
+const locationInput = document.getElementById('locationName');
+const suggestions = document.getElementById('suggestions');
+
+locationInput.addEventListener('input', async () => {
+  const query = locationInput.value;
+  if(!query) { suggestions.innerHTML=''; suggestions.classList.add('hidden'); return; }
+
+  try {
+    const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=5`);
+    const data = await res.json();
+    suggestions.innerHTML = data.map(item => `<li class="px-3 py-2 hover:bg-purple-100 cursor-pointer dark:hover:bg-purple-700" data-lat="${item.lat}" data-lon="${item.lon}">${item.display_name}</li>`).join('');
+    suggestions.classList.remove('hidden');
+  } catch(err) { console.error(err); }
+});
+
+suggestions.addEventListener('click', e => {
+  if(e.target.tagName === 'LI') {
+    const lat = parseFloat(e.target.dataset.lat);
+    const lon = parseFloat(e.target.dataset.lon);
+    locationInput.value = e.target.textContent;
+    suggestions.classList.add('hidden');
+    displayResult(lat, lon, encodeGeohash(lat, lon));
+  }
+});
+
+// Hide suggestions when clicking outside
+document.addEventListener('click', e => {
+  if(!locationInput.contains(e.target) && !suggestions.contains(e.target)) {
+    suggestions.classList.add('hidden');
+  }
+});
+</script>
+</body>
+</html>
