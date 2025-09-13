@@ -144,11 +144,22 @@ function displayResult(lat, lon, geohash){
 document.getElementById('getLocation').addEventListener('click', ()=>{
   if(navigator.geolocation){
     navigator.geolocation.getCurrentPosition(pos=>{
-      const length=parseInt(document.getElementById('geohashLength').value)||9;
-      const lat=pos.coords.latitude, lon=pos.coords.longitude;
+      const lat = pos.coords.latitude;
+      const lon = pos.coords.longitude;
+      const length = parseInt(document.getElementById('geohashLength').value)||9;
+
+      // Fill inputs automatically
+      document.getElementById('latitude').value = lat.toFixed(6);
+      document.getElementById('longitude').value = lon.toFixed(6);
+
+      // Calculate geohash and display
       displayResult(lat, lon, encodeGeohash(lat, lon, length));
-    }, err=>{output.innerHTML='Error getting location: '+err.message;});
-  } else {output.innerHTML='Geolocation not supported.';}
+    }, err=>{
+      output.innerHTML='Error getting location: '+err.message;
+    });
+  } else {
+    output.innerHTML='Geolocation not supported.';
+  }
 });
 
 document.getElementById('calculateCoords').addEventListener('click', ()=>{
